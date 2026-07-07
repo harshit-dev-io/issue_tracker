@@ -5,6 +5,7 @@ import uuid
 from sqlalchemy.orm import validates , relationship
 import bcrypt
 import enum
+from datetime import datetime , timezone , timedelta
 
 class User(Base_Model):
     __tablename__ = "user"
@@ -24,15 +25,34 @@ class User(Base_Model):
     def verify_pw(self , unhashed_pw:str):
         return bcrypt.checkpw(unhashed_pw.encode("utf-8") , self.password.encode("utf-8"))
     
+class Refresh_Token(Base_Model):
+    __tablename__ = "refreshtoken"
+
+    id = Column(UUID(as_uuid=True) , primary_key=True , nullable=False , default=uuid.uuid4)
+    refresh_token = Column(String , nullable=False)
+    user_id = Column(UUID(as_uuid=True) , ForeignKey("user.id" , ondelete="CASCADE" ) , nullable=False)
+    created_at = Column(DateTime(timezone=True) , server_default=func.now())
+    expire_on = Column(DateTime(timezone=True) ,default=lambda: (datetime.now(timezone.utc) + timedelta(days=15)))
+    is_valid  = Column(Boolean , default=True)
+
+    def verify_refresh_token(self) -> bool :
+        expire_on : datetime = self.expire_on 
+        if expire_on.tzinfo is None : 
+            expire_on = expire_on.replace(tzinfo=timezone.utc)
+
+        return expire_on > datetime.now(timezone.utc) and self.is_valid
+    
+
+    
 class Workspace(Base_Model):
     __tablename__ = "workspace"
-    id = Column(UUID , nullable=False , default=uuid.uuid4)
+    id = Column(UUID , nullable=False , default=uuid.uuid4 , primary_key=True)
     name = Column(String , nullable=False)
     created_at = Column(DateTime , server_default=func.now())
 
 class Membership(Base_Model):
     __tablename__ = "membership"
-    id = Column(UUID , nullable=False , default=uuid.uuid4)
+    id = Column(UUID , nullable=False , default=uuid.uuid4 , primary_key=True)
     user = Column(UUID , ForeignKey("user.id" , ondelete="CASCADE") , nullable=False)
     workspace = Column(UUID , ForeignKey("workspace.id" , ondelete="CASCADE") , nullable=False)
     role = Column(String , nullable=False )
@@ -40,7 +60,7 @@ class Membership(Base_Model):
 
 class Board(Base_Model):
     __tablename__ = "board"
-    id = Column(UUID , nullable=False , default=uuid.uuid4)
+    id = Column(UUID , nullable=False , default=uuid.uuid4 , primary_key=True)
     name = Column(String , nullable=False)
     owner = Column(UUID , ForeignKey("user.id" , ondelete="CASCADE") , nullable=False)
     workspace = Column(UUID , ForeignKey("workspace.id" , ondelete="CASCADE") , nullable=False)
@@ -50,12 +70,12 @@ issue_label_bridge = Table(
     "issue_label",
     Base_Model.metadata,
     Column("issue" , UUID , ForeignKey("issue.id") , primary_key=True),
-    Column("issue" , UUID , ForeignKey("label.id"))
+    Column("label" , UUID , ForeignKey("label.id"))
 )
 
 class Label(Base_Model):
     __tablename__ = "label"
-    id = Column(UUID , nullable=False , default=uuid.uuid4)
+    id = Column(UUID , nullable=False , default=uuid.uuid4 , primary_key=True)
     name = Column(String , nullable=False)
     workspace = Column(UUID , ForeignKey("workspace.id" , ondelete="CASCADE") , nullable=True)
     type = Column(String , nullable=False)
@@ -68,18 +88,18 @@ class STATUS(enum.Enum):
 
 class Issue(Base_Model):
     __tablename__ = "issue"
-    id = Column(UUID , nullable=False , default=uuid.uuid4)
+    id = Column(UUID , nullable=False , default=uuid.uuid4 , primary_key=True)
     name = Column(String , nullable=False)
     owner = Column(UUID , ForeignKey("user.id" , ondelete="CASCADE") , nullable=False)
     board = Column(UUID , ForeignKey("board.id" , ondelete="CASCADE") , nullable=False)
-    label = relationship("label" , secondary=issue_label_bridge , backref="issue")
+    label = relationship("Label" , secondary=issue_label_bridge , backref="issue")
     content = Column(String , nullable=True)
     status = Column(Enum(STATUS) , nullable=False ,default=STATUS.PENDING)
     created_at = Column(DateTime , server_default=func.now())
 
 class Sub_Issue(Base_Model):
     __tablename__ = "sub-issue"
-    id = Column(UUID , nullable=False , default=uuid.uuid4)
+    id = Column(UUID , nullable=False , default=uuid.uuid4 , primary_key=True)
     name = Column(String , nullable=False)
     owner = Column(UUID , ForeignKey("user.id" , ondelete="CASCADE") , nullable=False)
     issue = Column(UUID , ForeignKey("issue.id" , ondelete="CASCADE") , nullable=False)
