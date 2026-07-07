@@ -76,7 +76,19 @@ class Assignees(BaseModel):
     id : UUID
     name : str
     
-class Issue(BaseModel):
+
+
+class CommentCreate(BaseModel):
+    content: str
+    issue_id: UUID
+
+class CommentOut(BaseModel):
+    id: UUID
+    content: str
+    user_id: UUID
+    created_at: datetime
+
+class Issue_update(BaseModel):
     id : UUID
     name : str
     label : List[Label] = []
