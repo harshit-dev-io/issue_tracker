@@ -23,3 +23,11 @@ class workspace_create(BaseModel):
 class workspace(BaseModel):
     id : UUID
     name : str
+
+class Board_create(BaseModel):
+    name : str
+    workspace_id : UUID
+
+class Board(BaseModel):
+    id : UUID
+    name : str
