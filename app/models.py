@@ -97,6 +97,11 @@ class STATUS(enum.Enum):
     IN_PROGRESS = "in-progress"
     COMPLETED = "completed"
 
+class PRIORITY(enum.Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
 issue_assignee_bridge = Table(
     "issue_assignee",
     Base_Model.metadata,
