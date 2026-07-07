@@ -191,8 +191,8 @@ async def Board_Create(data : schema.Board_create , request : Request, db : Asyn
         print(e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST , detail=f"error : {e}")
     
-@router.get("/board/list/" , response_model=List[schema.Board] ,  status_code=status.HTTP_200_OK)
-async def Board_List( workspace_id ,request : Request, db : AsyncSession = Depends(get_db_connection)):
+@router.get("/board/list/" , response_model=Page[schema.Board] ,  status_code=status.HTTP_200_OK)
+async def Board_List( workspace_id ,request : Request, params : Params = Depends() ,db : AsyncSession = Depends(get_db_connection)):
     try: 
         user_id = auth_services.Verify_access_token(request.headers.get("authorization"))
         if not user_id:
@@ -224,7 +224,7 @@ async def Issue_Create(data : schema.Issue_create , workspace_id , request : Req
         query = select(models.Label).where(models.Label.id.in_(data.label))
         response = await db.execute(query)
         labels = response.scalars().all()
-        query = select(models.User).join(models.Membership).where(models.Membership.id.in_(data.assignees))
+        query = select(models.User).join(models.Membership).where(models.Membership.user.in_(data.assignees))
         response = await db.execute(query)
         assignees = response.scalars().all()
         issue = models.Issue(
@@ -243,8 +243,63 @@ async def Issue_Create(data : schema.Issue_create , workspace_id , request : Req
         print(e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST , detail=f"error : {e}")
     
-@router.get("/issue/list/" , response_model=List[schema.Issue] ,  status_code=status.HTTP_200_OK)
-async def Issue_List( board_id, workspace_id ,request : Request, db : AsyncSession = Depends(get_db_connection)):
+@router.put("/issue/update/", response_model=schema.Issue, status_code=status.HTTP_200_OK)
+async def Issue_update(data: schema.Issue_update, workspace_id: str, request: Request, db: AsyncSession = Depends(get_db_connection)):
+    try: 
+        user_id = auth_services.Verify_access_token(request.headers.get("authorization"))
+        if not user_id:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+            
+        await workspace_services.check_has_role(
+            user_id=user_id, 
+            workspace_id=workspace_id, 
+            allowed_roles=[models.ROLE.OWNER, models.ROLE.ADMIN, models.ROLE.MEMBER, models.ROLE.VIEWER], 
+            db=db
+        )
+
+        query = select(models.Issue).where(models.Issue.id == data.id).options(
+            selectinload(models.Issue.label),
+            selectinload(models.Issue.assignees),
+            selectinload(models.Issue.sub_issues),  # ADD THIS LINE
+            selectinload(models.Issue.comments)
+        )
+        response = await db.execute(query)
+        issue = response.scalar_one_or_none()
+        
+        if not issue:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Issue not found")
+
+        update_data = data.model_dump(exclude_unset=True)
+        new_labels = update_data.pop("label", None)
+        new_assignees = update_data.pop("assignees", None)
+        update_data.pop("sub_issues", None) 
+
+        for key, value in update_data.items():
+            setattr(issue, key, value)
+
+        if new_labels is not None:
+            label_ids = [lbl['id'] if isinstance(lbl, dict) else lbl for lbl in new_labels]
+            label_query = select(models.Label).where(models.Label.id.in_(label_ids))
+            label_res = await db.execute(label_query)
+            issue.label = label_res.scalars().all()
+
+        if new_assignees is not None:
+            assignee_ids = [user['id'] if isinstance(user, dict) else user for user in new_assignees]
+            user_query = select(models.User).where(models.User.id.in_(assignee_ids))
+            user_res = await db.execute(user_query)
+            issue.assignees = user_res.scalars().all()
+
+        await db.commit()
+        await db.refresh(issue)
+        
+        return issue
+
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"error : {e}")
+    
+@router.get("/issue/list/" , response_model=Page[schema.Issue] ,  status_code=status.HTTP_200_OK)
+async def Issue_List( board_id, workspace_id ,request : Request , params : Params = Depends() , db : AsyncSession = Depends(get_db_connection)):
     try: 
         user_id = auth_services.Verify_access_token(request.headers.get("authorization"))
         if not user_id:
