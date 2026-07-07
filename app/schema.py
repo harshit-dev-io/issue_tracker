@@ -1,6 +1,6 @@
 from pydantic import BaseModel , EmailStr 
 from uuid import UUID
-from typing import List
+from typing import List , Optional
 from app import models
 from datetime import datetime
 
@@ -26,6 +26,16 @@ class workspace_create(BaseModel):
 class workspace(BaseModel):
     id : UUID
     name : str
+
+class Membership_create(BaseModel):
+    email : EmailStr
+    workspace_id : UUID
+    role : models.ROLE
+
+class Membership(BaseModel):
+    user : UUID
+    name : str
+    role : models.ROLE
 
 class Board_create(BaseModel):
     name : str
