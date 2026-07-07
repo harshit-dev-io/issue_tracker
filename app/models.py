@@ -76,15 +76,20 @@ issue_label_bridge = Table(
     "issue_label",
     Base_Model.metadata,
     Column("issue" , UUID , ForeignKey("issue.id") , primary_key=True),
-    Column("label" , UUID , ForeignKey("label.id"))
+    Column("label" , UUID , ForeignKey("label.id"), primary_key=True)
 )
+
+
+class LABEL_TYPE(enum.Enum):
+    PRIORITY = "priority"
+    TAG = "tag"
 
 class Label(Base_Model):
     __tablename__ = "label"
     id = Column(UUID , nullable=False , default=uuid.uuid4 , primary_key=True)
     name = Column(String , nullable=False)
     workspace = Column(UUID , ForeignKey("workspace.id" , ondelete="CASCADE") , nullable=True)
-    type = Column(String , nullable=False)
+    type = Column(Enum(LABEL_TYPE) , nullable=False)
     created_at = Column(DateTime , server_default=func.now())
 
 class STATUS(enum.Enum):
