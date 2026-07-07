@@ -361,7 +361,6 @@ async def Get_Issue( board_id, workspace_id , search_param ,request : Request , 
     except Exception as e :
         print(e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST , detail=f"error : {e}")
-
 @router.post("/label/create/" , status_code=status.HTTP_201_CREATED)
 async def label_Create(data : schema.Label_create , request : Request, db : AsyncSession = Depends(get_db_connection)):
     try: 
@@ -378,7 +377,6 @@ async def label_Create(data : schema.Label_create , request : Request, db : Asyn
         label = models.Label(
             name = data.name,
             workspace = data.workspace_id,
-            type = models.LABEL_TYPE.TAG
         )
         db.add(label)
         await db.commit()
@@ -400,7 +398,7 @@ async def label_List(workspace_id , request : Request , params : Params = Depend
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST , detail=f"error : {e}")
     
 @router.post("/sub_issue/create/" , status_code=status.HTTP_201_CREATED)
-async def Sub_Issue_Create(data : schema.Sub_Issue_create , request : Request, db : AsyncSession = Depends(get_db_connection)):
+async def Sub_Issue_Create(data : schema.Sub_Issue_create , workspace_id , request : Request, db : AsyncSession = Depends(get_db_connection)):
     try: 
         user_id = auth_services.Verify_access_token(request.headers.get("authorization"))
         if not user_id:
@@ -415,7 +413,7 @@ async def Sub_Issue_Create(data : schema.Sub_Issue_create , request : Request, d
             name = data.name,
             owner = user_id,
             issue = data.issue_id,
-            content = data.content
+            content = data.content 
         )
         db.add(sub_issue)
         await db.commit()
@@ -423,3 +421,21 @@ async def Sub_Issue_Create(data : schema.Sub_Issue_create , request : Request, d
     except Exception as e :
         print(e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST , detail=f"error : {e}")
+
+@router.post("/comment/create/", status_code=status.HTTP_201_CREATED)
+async def Comment_Create(data: schema.CommentCreate,workspace_id, request: Request, db: AsyncSession = Depends(get_db_connection)):
+    user_id = auth_services.Verify_access_token(request.headers.get("authorization"))
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    await workspace_services.check_has_role(
+            user_id=user_id, 
+            workspace_id=workspace_id, 
+            allowed_roles=[models.ROLE.OWNER, models.ROLE.ADMIN , models.ROLE.MEMBER , models.ROLE.VIEWER], 
+            db=db
+        )
+    comment = models.Comment(content=data.content, user_id=user_id, issue_id=data.issue_id)
+    db.add(comment)
+    await db.commit()
+    return {"message": "Comment posted"}
+
+add_pagination(router)
