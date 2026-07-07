@@ -12,3 +12,6 @@ class Login(BaseModel):
 class Token_Response(BaseModel):
     access_token : str
     refresh_token : str 
+
+class Token_Refresh(BaseModel):
+    refresh_token : str 
