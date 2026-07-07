@@ -50,12 +50,18 @@ class Workspace(Base_Model):
     name = Column(String , nullable=False)
     created_at = Column(DateTime , server_default=func.now())
 
+class ROLE(enum.Enum):
+    OWNER = "owner"
+    ADMIN = "admin"
+    MEMBER = "member"
+    VIEWER = "viewer"
+
 class Membership(Base_Model):
     __tablename__ = "membership"
     id = Column(UUID , nullable=False , default=uuid.uuid4 , primary_key=True)
     user = Column(UUID , ForeignKey("user.id" , ondelete="CASCADE") , nullable=False)
     workspace = Column(UUID , ForeignKey("workspace.id" , ondelete="CASCADE") , nullable=False)
-    role = Column(String , nullable=False )
+    role = Column(Enum(ROLE) , nullable=False )
     created_at = Column(DateTime , server_default=func.now())
 
 class Board(Base_Model):
