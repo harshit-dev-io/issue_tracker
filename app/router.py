@@ -110,4 +110,34 @@ async def Workspace_List(request : Request ,  db : AsyncSession = Depends(get_db
         print(e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST , detail=f"error : {e}")
     
+@router.post("/board/create/" , status_code=status.HTTP_201_CREATED)
+async def Board_Create(data : schema.Board_create , request : Request, db : AsyncSession = Depends(get_db_connection)):
+    try: 
+        user_id = auth_services.Verify_access_token(request.headers.get("authorization"))
+        if not user_id:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED , detail="Invalid token")
+        board = models.Board(
+            name = data.name,
+            owner = user_id,
+            workspace = data.workspace_id
+        )
+        db.add(board)
+        await db.commit()
+        return {"message" : "created"}
+    except Exception as e :
+        print(e)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST , detail=f"error : {e}")
     
+@router.get("/board/list/" , response_model=List[schema.Board] ,  status_code=status.HTTP_200_OK)
+async def Board_List( workspace_id ,request : Request, db : AsyncSession = Depends(get_db_connection)):
+    try: 
+        user_id = auth_services.Verify_access_token(request.headers.get("authorization"))
+        if not user_id:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED , detail="Invalid token")
+        query = select(models.Board).join(models.Workspace).join(models.Membership).where( models.Membership.workspace == workspace_id , models.Membership.user == user_id)
+        response = await db.execute(query)
+        boards = response.scalars().all()
+        return boards
+    except Exception as e :
+        print(e)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST , detail=f"error : {e}")
