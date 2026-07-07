@@ -1,9 +1,10 @@
-from fastapi import APIRouter , Depends , status , HTTPException
+from fastapi import APIRouter , Depends , status , HTTPException , Request
 from app import schema
 from app.config.database import get_db_connection , AsyncSession
 from app import models
 from sqlalchemy import select
 from app.services import auth_services
+from typing import List
 
 router = APIRouter()
 
@@ -67,3 +68,46 @@ async def Refresh(data : schema.Token_Refresh , db : AsyncSession = Depends(get_
     except Exception as e :
         print(e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST , detail=f"error : {e}")
+
+    
+@router.post("/workspace/create/" , status_code=status.HTTP_201_CREATED)
+async def Workspace_create(data : schema.workspace_create  , request : Request , db : AsyncSession = Depends(get_db_connection)):
+    try:
+        user_id = auth_services.Verify_access_token(request.headers.get("authorization"))
+        if not user_id:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED , detail="Invalid token")
+        
+        workspace = models.Workspace(
+            name = data.name
+        )
+        db.add(workspace)
+        await db.flush()
+        membership = models.Membership(
+            user = user_id,
+            workspace = workspace.id,
+            role = models.ROLE.OWNER
+        )
+        db.add(membership)
+        await db.commit()
+        return {"message":"created"}
+    except Exception as e :
+        print(e)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST , detail=f"error : {e}")
+    
+@router.get("/workspace/list/" , response_model=List[schema.workspace] , status_code=status.HTTP_200_OK)
+async def Workspace_List(request : Request ,  db : AsyncSession = Depends(get_db_connection)):
+    try: 
+        user_id = auth_services.Verify_access_token(request.headers.get("authorization"))
+        if not user_id:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED , detail="Invalid token")
+        query = select(models.Workspace).join(models.Membership).where(models.Membership.user == user_id)
+        response = await db.execute(query)
+        workspaces = response.scalars().all()
+
+        return workspaces
+
+    except Exception as e :
+        print(e)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST , detail=f"error : {e}")
+    
+    
