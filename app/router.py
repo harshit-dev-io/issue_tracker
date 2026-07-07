@@ -2,11 +2,12 @@ from fastapi import APIRouter , Depends , status , HTTPException , Request
 from app import schema
 from app.config.database import get_db_connection , AsyncSession
 from app import models
-from sqlalchemy import select , or_
-from app.services import auth_services
+from sqlalchemy import select
+from app.services import auth_services , workspace_services
 from typing import List
 from sqlalchemy.orm import selectinload
-from fastapi_pagination import paginate , add_pagination , Page 
+from fastapi_pagination import add_pagination , Page , Params
+from fastapi_pagination.ext.sqlalchemy import paginate
 
 router = APIRouter()
 
@@ -96,18 +97,17 @@ async def Workspace_create(data : schema.workspace_create  , request : Request ,
         print(e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST , detail=f"error : {e}")
     
-@router.get("/workspace/list/" , response_model=List[schema.workspace] , status_code=status.HTTP_200_OK)
-async def Workspace_List(request : Request ,  db : AsyncSession = Depends(get_db_connection)):
+@router.get("/workspace/list/" , response_model=Page[schema.workspace] , status_code=status.HTTP_200_OK)
+async def Workspace_List(request : Request ,params : Params = Depends() ,  db : AsyncSession = Depends(get_db_connection)):
     try: 
         user_id = auth_services.Verify_access_token(request.headers.get("authorization"))
         if not user_id:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED , detail="Invalid token")
         query = select(models.Workspace).join(models.Membership).where(models.Membership.user == user_id)
-        response = await db.execute(query)
-        workspaces = response.scalars().all()
-
-        return workspaces
-
+        return await paginate(db , query , params)
+    except HTTPException as http_ex:
+        raise http_ex
+    
     except Exception as e :
         print(e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST , detail=f"error : {e}")
@@ -118,6 +118,12 @@ async def Board_Create(data : schema.Board_create , request : Request, db : Asyn
         user_id = auth_services.Verify_access_token(request.headers.get("authorization"))
         if not user_id:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED , detail="Invalid token")
+        await workspace_services.check_has_role(
+            user_id=user_id, 
+            workspace_id=data.workspace_id, 
+            allowed_roles=[models.ROLE.OWNER, models.ROLE.ADMIN , models.ROLE.MEMBER], 
+            db=db
+        )
         board = models.Board(
             name = data.name,
             owner = user_id,
@@ -136,20 +142,30 @@ async def Board_List( workspace_id ,request : Request, db : AsyncSession = Depen
         user_id = auth_services.Verify_access_token(request.headers.get("authorization"))
         if not user_id:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED , detail="Invalid token")
+        await workspace_services.check_has_role(
+            user_id=user_id, 
+            workspace_id=workspace_id, 
+            allowed_roles=[models.ROLE.OWNER, models.ROLE.ADMIN , models.ROLE.MEMBER , models.ROLE.VIEWER], 
+            db=db
+        )
         query = select(models.Board).join(models.Workspace).join(models.Membership).where( models.Membership.workspace == workspace_id , models.Membership.user == user_id)
-        response = await db.execute(query)
-        boards = response.scalars().all()
-        return boards
+        return await paginate(db , query , params)
     except Exception as e :
         print(e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST , detail=f"error : {e}")
 
 @router.post("/issue/create/" , status_code=status.HTTP_201_CREATED)
-async def Issue_Create(data : schema.Issue_create , request : Request, db : AsyncSession = Depends(get_db_connection)):
+async def Issue_Create(data : schema.Issue_create , workspace_id , request : Request, db : AsyncSession = Depends(get_db_connection)):
     try: 
         user_id = auth_services.Verify_access_token(request.headers.get("authorization"))
         if not user_id:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED , detail="Invalid token")
+        await workspace_services.check_has_role(
+            user_id=user_id, 
+            workspace_id=workspace_id, 
+            allowed_roles=[models.ROLE.OWNER, models.ROLE.ADMIN , models.ROLE.MEMBER], 
+            db=db
+        )
         query = select(models.Label).where(models.Label.id.in_(data.label))
         response = await db.execute(query)
         labels = response.scalars().all()
@@ -157,12 +173,13 @@ async def Issue_Create(data : schema.Issue_create , request : Request, db : Asyn
         response = await db.execute(query)
         assignees = response.scalars().all()
         issue = models.Issue(
-            name = data.name,
-            owner = user_id,
-            board = data.board_id,
-            label = labels,
-            assignees = assignees , 
-            content = data.content
+            name=data.name,
+            owner=user_id,
+            board=data.board_id,
+            label=labels,
+            assignees=assignees, 
+            content=data.content,
+            priority=data.priority 
         )
         db.add(issue)
         await db.commit()
@@ -177,10 +194,60 @@ async def Issue_List( board_id, workspace_id ,request : Request, db : AsyncSessi
         user_id = auth_services.Verify_access_token(request.headers.get("authorization"))
         if not user_id:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED , detail="Invalid token")
-        query = select(models.Issue).join(models.Board).join(models.Workspace).join(models.Membership).where( models.Membership.workspace == workspace_id , models.Membership.user == user_id , models.Board.id == board_id).options(selectinload(models.Issue.label), selectinload(models.Issue.sub_issues))
+        await workspace_services.check_has_role(
+            user_id=user_id, 
+            workspace_id=workspace_id, 
+            allowed_roles=[models.ROLE.OWNER, models.ROLE.ADMIN , models.ROLE.MEMBER , models.ROLE.VIEWER], 
+            db=db
+        )
+        query = select(models.Issue).join(models.Board).join(models.Workspace).join(models.Membership).where( models.Membership.workspace == workspace_id , models.Membership.user == user_id , models.Board.id == board_id).options(selectinload(models.Issue.label), selectinload(models.Issue.sub_issues) , selectinload(models.Issue.comments))
+        return await paginate(db , query , params)
+    except Exception as e :
+        print(e)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST , detail=f"error : {e}")
+    
+@router.delete("/issue/delete/", status_code=status.HTTP_200_OK)
+async def Issue_Delete(issue_id , workspace_id , request: Request, db: AsyncSession = Depends(get_db_connection)):
+    try:
+        user_id = auth_services.Verify_access_token(request.headers.get("authorization"))
+        if not user_id:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+        await workspace_services.check_has_role(
+            user_id=user_id, 
+            workspace_id=workspace_id, 
+            allowed_roles=[models.ROLE.OWNER, models.ROLE.ADMIN , models.ROLE.MEMBER], 
+            db=db
+        )
+        query = select(models.Issue).where(models.Issue.id == issue_id)
         response = await db.execute(query)
-        issues = response.scalars().all()
-        return issues
+        issue = response.scalar_one_or_none()
+        if not issue:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Issue not found")
+        
+        await db.delete(issue)
+        await db.commit()
+        return {"message": "Issue deleted successfully"}
+        
+    except HTTPException as http_ex:
+        raise http_ex
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"error : {e}")
+
+@router.get("/issue/search/" , response_model=Page[schema.Issue] ,  status_code=status.HTTP_200_OK)
+async def Get_Issue( board_id, workspace_id , search_param ,request : Request , params : Params = Depends() , db : AsyncSession = Depends(get_db_connection)):
+    try: 
+        user_id = auth_services.Verify_access_token(request.headers.get("authorization"))
+        if not user_id:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED , detail="Invalid token")
+        await workspace_services.check_has_role(
+            user_id=user_id, 
+            workspace_id=workspace_id, 
+            allowed_roles=[models.ROLE.OWNER, models.ROLE.ADMIN , models.ROLE.MEMBER , models.ROLE.VIEWER], 
+            db=db
+        )
+        query = select(models.Issue).join(models.Board).join(models.Workspace).join(models.Membership).where( models.Membership.workspace == workspace_id , models.Membership.user == user_id , models.Board.id == board_id , models.Issue.name.ilike(f"%{search_param}%")).options(selectinload(models.Issue.label), selectinload(models.Issue.sub_issues), selectinload(models.Issue.comments))
+        return await paginate(db , query , params)
     except Exception as e :
         print(e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST , detail=f"error : {e}")
@@ -191,6 +258,13 @@ async def label_Create(data : schema.Label_create , request : Request, db : Asyn
         user_id = auth_services.Verify_access_token(request.headers.get("authorization"))
         if not user_id:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED , detail="Invalid token")
+        await workspace_services.check_has_role(
+            user_id=user_id, 
+            workspace_id=data.workspace_id, 
+            allowed_roles=[models.ROLE.OWNER, models.ROLE.ADMIN , models.ROLE.MEMBER , models.ROLE.VIEWER], 
+            db=db
+        )
+
         label = models.Label(
             name = data.name,
             workspace = data.workspace_id,
@@ -203,16 +277,14 @@ async def label_Create(data : schema.Label_create , request : Request, db : Asyn
         print(e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST , detail=f"error : {e}")
     
-@router.get("/label/list/" , response_model=List[schema.Label] ,  status_code=status.HTTP_200_OK)
-async def label_List(workspace_id , request : Request, db : AsyncSession = Depends(get_db_connection)):
+@router.get("/label/list/" , response_model=Page[schema.Label] ,  status_code=status.HTTP_200_OK)
+async def label_List(workspace_id , request : Request , params : Params = Depends(), db : AsyncSession = Depends(get_db_connection)):
     try: 
         user_id = auth_services.Verify_access_token(request.headers.get("authorization"))
         if not user_id:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED , detail="Invalid token")
-        query = select(models.Label).join(models.Workspace).join(models.Membership).where( or_(models.Membership.workspace == workspace_id , models.Membership.workspace == None ) , models.Membership.user == user_id )
-        response = await db.execute(query)
-        labels = response.scalars().all()
-        return labels
+        query = select(models.Label).join(models.Workspace).join(models.Membership).where(models.Membership.workspace == workspace_id , models.Membership.user == user_id )
+        return await paginate(db , query , params)
     except Exception as e :
         print(e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST , detail=f"error : {e}")
@@ -223,6 +295,12 @@ async def Sub_Issue_Create(data : schema.Sub_Issue_create , request : Request, d
         user_id = auth_services.Verify_access_token(request.headers.get("authorization"))
         if not user_id:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED , detail="Invalid token")
+        await workspace_services.check_has_role(
+            user_id=user_id, 
+            workspace_id=workspace_id, 
+            allowed_roles=[models.ROLE.OWNER, models.ROLE.ADMIN , models.ROLE.MEMBER], 
+            db=db
+        )
         sub_issue = models.Sub_Issue(
             name = data.name,
             owner = user_id,
