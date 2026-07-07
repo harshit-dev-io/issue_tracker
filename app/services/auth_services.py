@@ -28,7 +28,10 @@ def Get_token(user_id):
 
 def Verify_access_token(access_token):
     try:
+        if not access_token:
+            return None
+        access_token = access_token.split(" ")[1]
         payload = jwt.decode(access_token , settings.JWT_SECRET , algorithms="HS256")
-        return payload
+        return payload["sub"]
     except :
         return None    
