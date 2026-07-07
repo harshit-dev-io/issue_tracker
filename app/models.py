@@ -79,17 +79,11 @@ issue_label_bridge = Table(
     Column("label" , UUID , ForeignKey("label.id"), primary_key=True)
 )
 
-
-class LABEL_TYPE(enum.Enum):
-    PRIORITY = "priority"
-    TAG = "tag"
-
 class Label(Base_Model):
     __tablename__ = "label"
     id = Column(UUID , nullable=False , default=uuid.uuid4 , primary_key=True)
     name = Column(String , nullable=False)
     workspace = Column(UUID , ForeignKey("workspace.id" , ondelete="CASCADE") , nullable=True)
-    type = Column(Enum(LABEL_TYPE) , nullable=False)
     created_at = Column(DateTime , server_default=func.now())
 
 class STATUS(enum.Enum):
@@ -118,6 +112,8 @@ class Issue(Base_Model):
     label = relationship("Label" , secondary=issue_label_bridge , backref="issue")
     sub_issues = relationship("Sub_Issue", back_populates="parent_issue", cascade="all, delete-orphan")
     assignees = relationship("User" , secondary=issue_assignee_bridge , backref="issue")
+    priority = Column(Enum(PRIORITY) , nullable=False , default=PRIORITY.LOW)
+    comments = relationship("Comment", cascade="all, delete-orphan")
     content = Column(String , nullable=True)
     status = Column(Enum(STATUS) , nullable=False ,default=STATUS.PENDING)
     created_at = Column(DateTime , server_default=func.now())
@@ -132,3 +128,12 @@ class Sub_Issue(Base_Model):
     content = Column(String , nullable=True)
     is_completed = Column(Boolean , nullable=False , default=False)
     created_at = Column(DateTime , server_default=func.now())
+
+class Comment(Base_Model):
+    __tablename__ = "comment"
+    id = Column(UUID, nullable=False, default=uuid.uuid4, primary_key=True)
+    content = Column(String, nullable=False)
+    user_id = Column(UUID, ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
+    issue_id = Column(UUID, ForeignKey("issue.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+    author = relationship("User")
