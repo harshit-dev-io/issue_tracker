@@ -46,3 +46,43 @@ class Board(Base_Model):
     workspace = Column(UUID , ForeignKey("workspace.id" , ondelete="CASCADE") , nullable=False)
     created_at = Column(DateTime , server_default=func.now())
 
+issue_label_bridge = Table(
+    "issue_label",
+    Base_Model.metadata,
+    Column("issue" , UUID , ForeignKey("issue.id") , primary_key=True),
+    Column("issue" , UUID , ForeignKey("label.id"))
+)
+
+class Label(Base_Model):
+    __tablename__ = "label"
+    id = Column(UUID , nullable=False , default=uuid.uuid4)
+    name = Column(String , nullable=False)
+    workspace = Column(UUID , ForeignKey("workspace.id" , ondelete="CASCADE") , nullable=True)
+    type = Column(String , nullable=False)
+    created_at = Column(DateTime , server_default=func.now())
+
+class STATUS(enum.Enum):
+    PENDING = "pending"
+    IN_PROGRESS = "in-progress"
+    COMPLETED = "completed"
+
+class Issue(Base_Model):
+    __tablename__ = "issue"
+    id = Column(UUID , nullable=False , default=uuid.uuid4)
+    name = Column(String , nullable=False)
+    owner = Column(UUID , ForeignKey("user.id" , ondelete="CASCADE") , nullable=False)
+    board = Column(UUID , ForeignKey("board.id" , ondelete="CASCADE") , nullable=False)
+    label = relationship("label" , secondary=issue_label_bridge , backref="issue")
+    content = Column(String , nullable=True)
+    status = Column(Enum(STATUS) , nullable=False ,default=STATUS.PENDING)
+    created_at = Column(DateTime , server_default=func.now())
+
+class Sub_Issue(Base_Model):
+    __tablename__ = "sub-issue"
+    id = Column(UUID , nullable=False , default=uuid.uuid4)
+    name = Column(String , nullable=False)
+    owner = Column(UUID , ForeignKey("user.id" , ondelete="CASCADE") , nullable=False)
+    issue = Column(UUID , ForeignKey("issue.id" , ondelete="CASCADE") , nullable=False)
+    content = Column(String , nullable=True)
+    is_completed = Column(Boolean , nullable=False , default=False)
+    created_at = Column(DateTime , server_default=func.now())
