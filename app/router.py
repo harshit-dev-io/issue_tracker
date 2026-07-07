@@ -47,6 +47,9 @@ async def Login(data : schema.Login , db:AsyncSession = Depends(get_db_connectio
         
         return response
     
+    except HTTPException as http_ex:
+        raise http_ex
+    
     except Exception as e :
         print(e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST , detail=f"error : {e}")
@@ -68,6 +71,9 @@ async def Refresh(data : schema.Token_Refresh , db : AsyncSession = Depends(get_
         db.add(new_refresh)
         await db.commit()
         return response
+    
+    except HTTPException as http_ex:
+        raise http_ex
     except Exception as e :
         print(e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST , detail=f"error : {e}")
@@ -93,6 +99,9 @@ async def Workspace_create(data : schema.workspace_create  , request : Request ,
         db.add(membership)
         await db.commit()
         return {"message":"created"}
+    
+    except HTTPException as http_ex:
+        raise http_ex
     except Exception as e :
         print(e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST , detail=f"error : {e}")
@@ -105,6 +114,7 @@ async def Workspace_List(request : Request ,params : Params = Depends() ,  db : 
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED , detail="Invalid token")
         query = select(models.Workspace).join(models.Membership).where(models.Membership.user == user_id)
         return await paginate(db , query , params)
+    
     except HTTPException as http_ex:
         raise http_ex
     
@@ -143,6 +153,9 @@ async def Membership_create(data : schema.Membership_create  , request : Request
         db.add(membership)
         await db.commit()
         return {"message":"created"}
+    
+    except HTTPException as http_ex:
+        raise http_ex
     except Exception as e :
         print(e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST , detail=f"error : {e}")
@@ -162,6 +175,8 @@ async def Membership_List(workspace_id , request : Request , params : Params = D
         query = select(models.Membership.user.label("user") , models.User.name.label("name") , models.Membership.role.label("role")).select_from(models.Membership).join(models.User , models.User.id == models.Membership.user).where(models.Membership.workspace == workspace_id)
         return await paginate(db , query , params)
 
+    except HTTPException as http_ex:
+        raise http_ex
     except Exception as e :
         print(e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST , detail=f"error : {e}")
@@ -187,6 +202,9 @@ async def Board_Create(data : schema.Board_create , request : Request, db : Asyn
         db.add(board)
         await db.commit()
         return {"message" : "created"}
+    
+    except HTTPException as http_ex:
+        raise http_ex
     except Exception as e :
         print(e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST , detail=f"error : {e}")
@@ -205,6 +223,9 @@ async def Board_List( workspace_id ,request : Request, params : Params = Depends
         )
         query = select(models.Board).join(models.Workspace).join(models.Membership).where( models.Membership.workspace == workspace_id , models.Membership.user == user_id)
         return await paginate(db , query , params)
+    
+    except HTTPException as http_ex:
+        raise http_ex
     except Exception as e :
         print(e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST , detail=f"error : {e}")
@@ -239,6 +260,8 @@ async def Issue_Create(data : schema.Issue_create , workspace_id , request : Req
         db.add(issue)
         await db.commit()
         return {"message" : "created"}
+    except HTTPException as http_ex:
+        raise http_ex
     except Exception as e :
         print(e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST , detail=f"error : {e}")
@@ -294,6 +317,8 @@ async def Issue_update(data: schema.Issue_update, workspace_id: str, request: Re
         
         return issue
 
+    except HTTPException as http_ex:
+        raise http_ex
     except Exception as e:
         print(e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"error : {e}")
@@ -312,6 +337,8 @@ async def Issue_List( board_id, workspace_id ,request : Request , params : Param
         )
         query = select(models.Issue).join(models.Board).join(models.Workspace).join(models.Membership).where( models.Membership.workspace == workspace_id , models.Membership.user == user_id , models.Board.id == board_id).options(selectinload(models.Issue.label), selectinload(models.Issue.sub_issues) , selectinload(models.Issue.comments))
         return await paginate(db , query , params)
+    except HTTPException as http_ex:
+        raise http_ex
     except Exception as e :
         print(e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST , detail=f"error : {e}")
@@ -358,6 +385,8 @@ async def Get_Issue( board_id, workspace_id , search_param ,request : Request , 
         )
         query = select(models.Issue).join(models.Board).join(models.Workspace).join(models.Membership).where( models.Membership.workspace == workspace_id , models.Membership.user == user_id , models.Board.id == board_id , models.Issue.name.ilike(f"%{search_param}%")).options(selectinload(models.Issue.label), selectinload(models.Issue.sub_issues), selectinload(models.Issue.comments))
         return await paginate(db , query , params)
+    except HTTPException as http_ex:
+        raise http_ex
     except Exception as e :
         print(e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST , detail=f"error : {e}")
@@ -381,6 +410,8 @@ async def label_Create(data : schema.Label_create , request : Request, db : Asyn
         db.add(label)
         await db.commit()
         return {"message" : "created"}
+    except HTTPException as http_ex:
+        raise http_ex
     except Exception as e :
         print(e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST , detail=f"error : {e}")
@@ -393,6 +424,8 @@ async def label_List(workspace_id , request : Request , params : Params = Depend
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED , detail="Invalid token")
         query = select(models.Label).join(models.Workspace).join(models.Membership).where(models.Membership.workspace == workspace_id , models.Membership.user == user_id )
         return await paginate(db , query , params)
+    except HTTPException as http_ex:
+        raise http_ex
     except Exception as e :
         print(e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST , detail=f"error : {e}")
@@ -418,24 +451,32 @@ async def Sub_Issue_Create(data : schema.Sub_Issue_create , workspace_id , reque
         db.add(sub_issue)
         await db.commit()
         return {"message" : "created"}
+    except HTTPException as http_ex:
+        raise http_ex
     except Exception as e :
         print(e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST , detail=f"error : {e}")
 
 @router.post("/comment/create/", status_code=status.HTTP_201_CREATED)
 async def Comment_Create(data: schema.CommentCreate,workspace_id, request: Request, db: AsyncSession = Depends(get_db_connection)):
-    user_id = auth_services.Verify_access_token(request.headers.get("authorization"))
-    if not user_id:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-    await workspace_services.check_has_role(
-            user_id=user_id, 
-            workspace_id=workspace_id, 
-            allowed_roles=[models.ROLE.OWNER, models.ROLE.ADMIN , models.ROLE.MEMBER , models.ROLE.VIEWER], 
-            db=db
-        )
-    comment = models.Comment(content=data.content, user_id=user_id, issue_id=data.issue_id)
-    db.add(comment)
-    await db.commit()
-    return {"message": "Comment posted"}
+    try:
+        user_id = auth_services.Verify_access_token(request.headers.get("authorization"))
+        if not user_id:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+        await workspace_services.check_has_role(
+                user_id=user_id, 
+                workspace_id=workspace_id, 
+                allowed_roles=[models.ROLE.OWNER, models.ROLE.ADMIN , models.ROLE.MEMBER , models.ROLE.VIEWER], 
+                db=db
+            )
+        comment = models.Comment(content=data.content, user_id=user_id, issue_id=data.issue_id)
+        db.add(comment)
+        await db.commit()
+        return {"message": "Comment posted"}
+    except HTTPException as http_ex:
+        raise http_ex
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"error : {e}")
 
 add_pagination(router)
