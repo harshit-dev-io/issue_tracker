@@ -112,6 +112,61 @@ async def Workspace_List(request : Request ,params : Params = Depends() ,  db : 
         print(e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST , detail=f"error : {e}")
     
+@router.post("/membership/create/" , status_code=status.HTTP_201_CREATED)
+async def Membership_create(data : schema.Membership_create  , request : Request , db : AsyncSession = Depends(get_db_connection)):
+    try:
+        user_id = auth_services.Verify_access_token(request.headers.get("authorization"))
+        if not user_id:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED , detail="Invalid token")
+        
+        await workspace_services.check_has_role(
+            user_id=user_id, 
+            workspace_id=data.workspace_id, 
+            allowed_roles=[models.ROLE.OWNER, models.ROLE.ADMIN], 
+            db=db
+        )
+        
+        if data.role == models.ROLE.OWNER:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN , detail="you dont have permission to perform this action")
+        
+        response = await db.execute(select(models.User).where(models.User.email == data.email))
+        user = response.scalar_one_or_none()
+
+        if not user :
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND , detail="user doesn't exists")
+        
+        membership = models.Membership(
+            user = user.id,
+            workspace = data.workspace_id,
+            role = data.role
+        )
+        db.add(membership)
+        await db.commit()
+        return {"message":"created"}
+    except Exception as e :
+        print(e)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST , detail=f"error : {e}")
+    
+@router.get("/membership/list/" , response_model=Page[schema.Membership] , status_code=status.HTTP_200_OK)
+async def Membership_List(workspace_id , request : Request , params : Params = Depends() , db : AsyncSession = Depends(get_db_connection)):
+    try: 
+        user_id = auth_services.Verify_access_token(request.headers.get("authorization"))
+        if not user_id:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED , detail="Invalid token")
+        await workspace_services.check_has_role(
+            user_id=user_id, 
+            workspace_id=workspace_id, 
+            allowed_roles=[models.ROLE.OWNER, models.ROLE.ADMIN , models.ROLE.MEMBER , models.ROLE.VIEWER], 
+            db=db
+        )
+        query = select(models.Membership.user.label("user") , models.User.name.label("name") , models.Membership.role.label("role")).select_from(models.Membership).join(models.User , models.User.id == models.Membership.user).where(models.Membership.workspace == workspace_id)
+        return await paginate(db , query , params)
+
+    except Exception as e :
+        print(e)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST , detail=f"error : {e}")
+
+    
 @router.post("/board/create/" , status_code=status.HTTP_201_CREATED)
 async def Board_Create(data : schema.Board_create , request : Request, db : AsyncSession = Depends(get_db_connection)):
     try: 
