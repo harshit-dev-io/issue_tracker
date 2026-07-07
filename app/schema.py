@@ -1,4 +1,5 @@
 from pydantic import BaseModel , EmailStr
+from uuid import UUID
 
 class Signup(BaseModel):
     name : str
@@ -15,3 +16,10 @@ class Token_Response(BaseModel):
 
 class Token_Refresh(BaseModel):
     refresh_token : str 
+
+class workspace_create(BaseModel):
+    name : str
+
+class workspace(BaseModel):
+    id : UUID
+    name : str
