@@ -46,16 +46,16 @@ class Board(BaseModel):
     name : str
 
 class Issue_create(BaseModel):
-    name : str
-    board_id : UUID
-    label : List[UUID]
-    assignees : List[UUID] = []
-    content : str
+    name: str
+    board_id: UUID
+    label: List[UUID] = []
+    assignees: List[UUID] = []
+    content: Optional[str] = None
+    priority: Optional[models.PRIORITY] = models.PRIORITY.LOW
     
 class Label(BaseModel):
     id : UUID
     name : str
-    type : models.LABEL_TYPE
 
 class Label_create(BaseModel):
     name : str
@@ -64,13 +64,13 @@ class Label_create(BaseModel):
 class Sub_Issue_create(BaseModel):
     name : str
     issue_id : UUID
-    content : str
+    content : Optional[str] = None
 
 class Sub_Issue(BaseModel):
-    id : UUID
-    name : str
-    content : str
-    is_completed : bool
+    id: UUID
+    name: str
+    content: Optional[str] = None 
+    is_completed: bool
 
 class Assignees(BaseModel):
     id : UUID
@@ -84,4 +84,16 @@ class Issue(BaseModel):
     assignees : List[Assignees] = []
     content : str
     status : models.STATUS
-    created_at : datetime
+    priority : models.PRIORITY
+    
+class Issue(BaseModel):
+    id: UUID
+    name: str
+    label: List[Label] = []
+    sub_issues: List[Sub_Issue] = []
+    assignees: List[Assignees] = []
+    comments: List[CommentOut] = []
+    content: Optional[str] = None 
+    status: models.STATUS
+    priority: models.PRIORITY
+    created_at: datetime
