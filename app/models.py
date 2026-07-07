@@ -92,6 +92,13 @@ class STATUS(enum.Enum):
     IN_PROGRESS = "in-progress"
     COMPLETED = "completed"
 
+issue_assignee_bridge = Table(
+    "issue_assignee",
+    Base_Model.metadata,
+    Column("user" , UUID , ForeignKey("user.id") , primary_key=True),
+    Column("issue" , UUID , ForeignKey("issue.id") , primary_key=True)
+)
+
 class Issue(Base_Model):
     __tablename__ = "issue"
     id = Column(UUID , nullable=False , default=uuid.uuid4 , primary_key=True)
