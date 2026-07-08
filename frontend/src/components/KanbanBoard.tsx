@@ -223,7 +223,7 @@ export default function KanbanBoard({ onError }: { onError: (err: any) => void }
     } catch (err: any) { onError(err.response?.data?.detail || 'Comment drop'); }
   };
 
-  const columns: Issue['status'][] = ['PENDING', 'IN_PROGRESS', 'COMPLETED'];
+  const columns: Issue['status'][] = ['PENDING', 'in-progress', 'COMPLETED'];
 
   return (
     <div className="p-6 bg-gray-950 text-gray-100">
