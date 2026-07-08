@@ -1,7 +1,8 @@
 {
-  "files": [],
-  "references": [
-    { "path": "./tsconfig.app.json" },
-    { "path": "./tsconfig.node.json" }
-  ]
+  "compilerOptions": {
+    "noUnusedLocals": false,
+    "strictNullChecks": false,
+    "verbatimModuleSyntax": false,
+    "ignoreDeprecations": "5.0"
+  }
 }
