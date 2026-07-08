@@ -1,8 +1,27 @@
 {
   "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["DOM", "DOM.Iterable", "ES2020"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    /* ADD THIS LINE HERE */
+    "jsx": "react-jsx",
+
+    /* Bundler resolution */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+
+    /* Linting / Loose checks to ensure easy build */
+    "strict": false,
     "noUnusedLocals": false,
-    "strictNullChecks": false,
-    "verbatimModuleSyntax": false,
-    "ignoreDeprecations": "5.0"
-  }
+    "noUnusedParameters": false,
+    "noImplicitReturns": false,
+    "fallthroughCasesInSwitch": false
+  },
+  "include": ["src"]
 }
