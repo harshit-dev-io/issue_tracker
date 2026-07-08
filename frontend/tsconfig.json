@@ -5,9 +5,8 @@
     "lib": ["DOM", "DOM.Iterable", "ES2020"],
     "module": "ESNext",
     "skipLibCheck": true,
-
-    /* ADD THIS LINE HERE */
     "jsx": "react-jsx",
+    "allowArbitraryExtensions": true,
 
     /* Bundler resolution */
     "moduleResolution": "bundler",
@@ -16,12 +15,12 @@
     "isolatedModules": true,
     "noEmit": true,
 
-    /* Linting / Loose checks to ensure easy build */
+    /* Loose checks to guarantee compilation */
     "strict": false,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noImplicitReturns": false,
-    "fallthroughCasesInSwitch": false
+    "noFallthroughCasesInSwitch": false
   },
   "include": ["src"]
 }
