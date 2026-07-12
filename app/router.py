@@ -14,6 +14,11 @@ router = APIRouter()
 @router.post("/auth/signup/" , status_code=status.HTTP_201_CREATED)
 async def Signup(data : schema.Signup , db:AsyncSession = Depends(get_db_connection)):
     try :
+        query = select(models.User).where(models.User.email == data.email)
+        response = await db.execute(query)
+        user = response.scalar_one_or_none()
+        if user:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN , detail="user exists")
         user = models.User(
             name = data.name,
             email = data.email,
